@@ -1,0 +1,31 @@
+plugins {
+    id 'application'
+}
+
+group = 'edu.icesi'
+version = '1.0.0'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+application {
+    mainClass = 'edu.icesi.sitmmio.Main'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+tasks.register('runUnitTests', JavaExec) {
+    group = 'verification'
+    description = 'Runs the lightweight standard-library unit tests.'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'edu.icesi.sitmmio.TestSuite'
+}
+
+tasks.named('test') {
+    dependsOn tasks.named('runUnitTests')
+}
