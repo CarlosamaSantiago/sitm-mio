@@ -1,31 +1,47 @@
 plugins {
-    id 'application'
+    id 'java'
 }
 
-group = 'edu.icesi'
-version = '1.0.0'
+allprojects {
+    group = 'edu.icesi.sitmmio'
+    version = '3.0.0-SNAPSHOT'
 
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(17)
+    repositories {
+        mavenCentral()
     }
 }
 
-application {
-    mainClass = 'edu.icesi.sitmmio.Main'
-}
+subprojects {
+    apply plugin: 'java'
 
-tasks.withType(JavaCompile).configureEach {
-    options.encoding = 'UTF-8'
-}
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(17)
+        }
+    }
 
-tasks.register('runUnitTests', JavaExec) {
-    group = 'verification'
-    description = 'Runs the lightweight standard-library unit tests.'
-    classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'edu.icesi.sitmmio.TestSuite'
-}
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+    }
 
-tasks.named('test') {
-    dependsOn tasks.named('runUnitTests')
+    dependencies {
+        implementation 'com.zeroc:ice:3.7.10'
+
+        testImplementation platform('org.junit:junit-bom:5.10.2')
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+    }
+
+    test {
+        useJUnitPlatform()
+    }
+
+    // copyLibs copia el runtime classpath a build/runtime-libs/
+    // (separado de build/libs/ para evitar colisiones cuando varios subprojects
+    // se sincronizan en paralelo con dependencias entre sí)
+    tasks.register('copyLibs', Sync) {
+        from configurations.runtimeClasspath
+        into "${buildDir}/runtime-libs"
+        // Asegurar que los jars de project dependencies se construyan primero
+        dependsOn configurations.runtimeClasspath
+    }
 }

@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>SITM-MIO RT</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  body, html { margin:0; padding:0; height:100%; background:#f0ece4; font-family:-apple-system, sans-serif; }
+  #map { height:100vh; width:100%; }
+  .bus-pin { background:transparent; border:none; }
+  .alert-overlay { background:#c00; color:#fff; padding:8px; border-radius:6px; font-weight:bold; }
+  .bus-popup { font-size:12px; min-width:170px; }
+  .bus-popup .speed { display:inline-block; background:#f4f4f4; padding:2px 6px; border-radius:4px; }
+  .bus-popup .speed.good { background:#d6f5d6; color:#2a8000; }
+  .bus-popup .speed.med  { background:#fdebcb; color:#cc7a00; }
+  .bus-popup .speed.bad  { background:#fcd2d2; color:#c00; }
+  .stats-overlay {
+    position:absolute; top:10px; right:10px; z-index:1000;
+    background:rgba(255,255,255,0.95); padding:10px 14px; border-radius:8px;
+    box-shadow:0 2px 8px rgba(0,0,0,0.2); font-size:12px; min-width:160px;
+  }
+  .stats-overlay h4 { margin:0 0 6px 0; font-size:12px; color:#333; }
+  .stats-overlay b { display:inline-block; width:78px; }
+  .legend {
+    position:absolute; bottom:30px; left:10px; z-index:1000;
+    background:rgba(255,255,255,0.95); padding:8px 12px; border-radius:6px;
+    box-shadow:0 2px 6px rgba(0,0,0,0.2); font-size:11px;
+  }
+  .legend .dot {
+    display:inline-block; width:10px; height:10px; border-radius:50%;
+    margin-right:6px; vertical-align:middle; border:1px solid #fff;
+  }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div class="stats-overlay">
+  <h4>📊 Estado del CCO</h4>
+  <div><b>Buses:</b>     <span id="stat-buses">0</span></div>
+  <div><b>En ruta:</b>   <span id="stat-enRuta" style="color:#2a8000">0</span></div>
+  <div><b>Parados:</b>   <span id="stat-parado" style="color:#cc7a00">0</span></div>
+  <div><b>Sin señal:</b> <span id="stat-sinSenal" style="color:#666">0</span></div>
+  <div><b>Críticos:</b>  <span id="stat-critico" style="color:#c00">0</span></div>
+  <div><b>Alertas:</b>   <span id="stat-alertas" style="color:#c00">0</span></div>
+</div>
+<div class="legend">
+  <div><span class="dot" style="background:#2a8000"></span>EN_RUTA</div>
+  <div><span class="dot" style="background:#e69500"></span>PARADO</div>
+  <div><span class="dot" style="background:#888888"></span>SIN_SENAL</div>
+  <div><span class="dot" style="background:#c00000"></span>CRITICO</div>
+</div>
+<script>
+  var map = L.map('map', { preferCanvas: true }).setView([3.42, -76.52], 12);
+
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    attribution: '© OpenStreetMap © CARTO',
+    subdomains: 'abcd', maxZoom: 19, crossOrigin: true
+  }).addTo(map);
+
+  var markers = {};
+  var stats = { EN_RUTA:0, PARADO:0, SIN_SENAL:0, CRITICO:0, ALERTAS:0 };
+  var prevState = {};
+
+  var colors = {
+    EN_RUTA:   '#2a8000',
+    PARADO:    '#e69500',
+    SIN_SENAL: '#888888',
+    CRITICO:   '#c00000'
+  };
+
+  function makePinIcon(color) {
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="22" height="32" viewBox="0 0 22 32">' +
+      '<path d="M11 0C4.9 0 0 4.9 0 11c0 8.3 11 21 11 21s11-12.7 11-21C22 4.9 17.1 0 11 0z" ' +
+      'fill="' + color + '" stroke="white" stroke-width="1.5"/>' +
+      '<circle cx="11" cy="11" r="4.5" fill="white"/>' +
+      '</svg>';
+    return L.divIcon({ className:'bus-pin', html: svg,
+      iconSize: [22, 32], iconAnchor: [11, 32], popupAnchor: [0, -32] });
+  }
+
+  function updateStats() {
+    document.getElementById('stat-buses').textContent     = Object.keys(markers).length;
+    document.getElementById('stat-enRuta').textContent    = stats.EN_RUTA;
+    document.getElementById('stat-parado').textContent    = stats.PARADO;
+    document.getElementById('stat-sinSenal').textContent  = stats.SIN_SENAL;
+    document.getElementById('stat-critico').textContent   = stats.CRITICO;
+    document.getElementById('stat-alertas').textContent   = stats.ALERTAS;
+  }
+
+  function speedClass(kmh) {
+    if (kmh == null) return '';
+    if (kmh >= 15) return 'good';
+    if (kmh >= 10) return 'med';
+    return 'bad';
+  }
+
+  function popupHtml(busId, lineId, time, state, avgSpeed) {
+    var speedTxt = (avgSpeed != null)
+      ? '<span class="speed ' + speedClass(avgSpeed) + '">'
+          + avgSpeed.toFixed(2) + ' km/h</span>'
+      : '<span class="speed">— (R7 pendiente)</span>';
+    return '<div class="bus-popup">'
+      + '<b>Bus:</b> ' + busId + '<br>'
+      + '<b>Ruta:</b> ' + lineId + '<br>'
+      + '<b>Hora:</b> ' + time + '<br>'
+      + '<b>Estado:</b> ' + state + '<br>'
+      + '<b>Velocidad ruta (R7):</b><br>' + speedTxt
+      + '</div>';
+  }
+
+  // Signature ahora acepta avgSpeed (puede ser null cuando R7 no se ha corrido)
+  function updateBus(busId, lat, lng, lineId, time, state, avgSpeed) {
+    var color = colors[state] || '#0066cc';
+    var html = popupHtml(busId, lineId, time, state, avgSpeed);
+
+    if (markers[busId]) {
+      markers[busId].setLatLng([lat, lng]);
+      markers[busId].setIcon(makePinIcon(color));
+      markers[busId].setPopupContent(html);
+    } else {
+      var m = L.marker([lat, lng], { icon: makePinIcon(color) }).addTo(map);
+      m.bindPopup(html);
+      markers[busId] = m;
+    }
+
+    if (prevState[busId] && stats[prevState[busId]] > 0) stats[prevState[busId]]--;
+    if (state in stats) stats[state]++;
+    prevState[busId] = state;
+    updateStats();
+  }
+
+  function showStop(stopId, lat, lng) {
+    L.circleMarker([lat, lng], {radius:4, color:'#333', fillColor:'#fff', fillOpacity:1}).addTo(map);
+  }
+
+  function showAlert(busId, lineId, priority, description, lat, lng) {
+    stats.ALERTAS++;
+    updateStats();
+    var m = L.circleMarker([lat, lng], {radius:16, color:'#c00', fillColor:'#c00', fillOpacity:0.4, weight:3}).addTo(map);
+    m.bindPopup('<div class="alert-overlay">🚨 ALERTA ' + priority + '<br>Bus ' + busId + ' / Ruta ' + lineId + '<br>' + description + '</div>').openPopup();
+    setTimeout(function(){ map.removeLayer(m); }, 60000);
+  }
+
+  console.log('Leaflet inicializado. Centro:', map.getCenter(), 'Zoom:', map.getZoom());
+</script>
+</body>
+</html>

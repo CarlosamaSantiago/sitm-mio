@@ -1,0 +1,51 @@
+openapi: 3.0.3
+info:
+  title: SITM-MIO Public API
+  version: "3.0.0"
+  description: API ciudadana para consultas de velocidad promedio por ruta y mes (R14).
+paths:
+  /api/v1/speeds/{lineId}:
+    get:
+      summary: Velocidad promedio de una ruta en un mes
+      parameters:
+        - name: lineId
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: year
+          in: query
+          required: true
+          schema: { type: integer }
+        - name: month
+          in: query
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: SpeedReport JSON
+        "401":
+          description: Unauthorized
+        "404":
+          description: NoDataForPartition
+        "429":
+          description: Rate limited
+  /api/v1/speeds:
+    get:
+      summary: Velocidades de todas las rutas en un mes
+      parameters:
+        - { name: year, in: query, required: true, schema: { type: integer } }
+        - { name: month, in: query, required: true, schema: { type: integer } }
+      responses: { "200": { description: Lista de SpeedReport } }
+  /api/v1/speeds/range:
+    get:
+      summary: Velocidades en un rango de meses
+      parameters:
+        - { name: yf, in: query, required: true, schema: { type: integer } }
+        - { name: mf, in: query, required: true, schema: { type: integer } }
+        - { name: yt, in: query, required: true, schema: { type: integer } }
+        - { name: mt, in: query, required: true, schema: { type: integer } }
+      responses: { "200": { description: Lista de SpeedReport } }
+  /api/v1/health:
+    get:
+      summary: Estado del sistema
+      responses: { "200": { description: OK } }

@@ -1,0 +1,4 @@
+// domain-core es Java puro. Excluimos Ice heredado del raíz.
+configurations.implementation.dependencies.removeAll {
+    it.group == 'com.zeroc' && it.name == 'ice'
+}

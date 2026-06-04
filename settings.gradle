@@ -5,11 +5,27 @@ pluginManagement {
     }
 }
 
-dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-    repositories {
-        mavenCentral()
-    }
-}
-
 rootProject.name = 'sitm-mio'
+
+include 'contracts'
+include 'domain-core'
+
+include ':nodes:bus:bus-simulator'
+include ':nodes:queue:datagram-queue'
+
+include ':nodes:datacenter:ingestion-gateway'
+include ':nodes:datacenter:stream-processor'
+include ':nodes:datacenter:datagram-event-bus'
+include ':nodes:datacenter:data-lake'
+include ':nodes:datacenter:batch-master'
+include ':nodes:datacenter:analytics-store'
+include ':nodes:datacenter:controller-cco'
+include ':nodes:datacenter:session-context'
+
+include ':nodes:worker:batch-worker'
+
+include ':nodes:server-admin:auth-service'
+include ':nodes:server-public-api:public-api'
+
+include ':nodes:client-cco:cco-client'
+include ':nodes:extern-client:citizen-cli'
