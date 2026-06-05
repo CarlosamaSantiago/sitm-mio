@@ -18,6 +18,11 @@ public class DatagramCsvReaderTest {
         assertEquals(LocalDateTime.of(2019, 5, 27, 20, 14, 43), datagram.datagramDate(), "datagramDate");
         assertClose(3.4761183, datagram.point().latitude(), 0.00000001, "latitude");
         assertClose(-76.4873683, datagram.point().longitude(), 0.00000001, "longitude");
+
+        Datagram scientific = reader.parseLine(
+                "0,28-MAY-19,513327,70,34761183,-764873683,757,2241,159,6.255401365E9,2019-05-27 20:14:43,1069"
+        ).orElseThrow(() -> new AssertionError("Expected scientific notation to parse"));
+        assertEquals(6255401365L, scientific.unknown1(), "unknown1 scientific notation");
     }
 
     private static void assertEquals(Object expected, Object actual, String label) {

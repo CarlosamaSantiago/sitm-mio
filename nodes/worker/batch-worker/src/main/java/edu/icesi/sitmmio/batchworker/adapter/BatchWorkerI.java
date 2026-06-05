@@ -3,17 +3,13 @@ package edu.icesi.sitmmio.batchworker.adapter;
 import com.zeroc.Ice.Current;
 import edu.icesi.sitmmio.batchworker.service.PartitionAggregator;
 import edu.icesi.sitmmio.contracts.SliceMapper;
-import edu.icesi.sitmmio.domain.Datagram;
 import edu.icesi.sitmmio.domain.Route;
 import edu.icesi.sitmmio.domain.RouteMonthKey;
 import edu.icesi.sitmmio.domain.SpeedResult;
 
 import java.nio.file.Path;
-import java.time.YearMonth;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
 
 public class BatchWorkerI implements SITM.IBatchWorker {
 
@@ -35,30 +31,24 @@ public class BatchWorkerI implements SITM.IBatchWorker {
             throws SITM.NoDataForPartition {
         long start = System.currentTimeMillis();
         RouteMonthKey rmk = SliceMapper.toRecord(key);
-
-        // Lectura directa del DataLake usando la misma lógica que LakeReader
         edu.icesi.sitmmio.datalake.io.LakeReader reader =
                 new edu.icesi.sitmmio.datalake.io.LakeReader(lakeRoot);
-        List<Datagram> data;
+
+        Route route = routes.getOrDefault(key.lineId,
+                new Route(key.lineId, "UNKNOWN", "NA"));
+        PartitionAggregator.AggregationSummary summary;
         try (var stream = reader.streamPartition(rmk)) {
-            data = stream.collect(Collectors.toList());
+            summary = aggregator.aggregateStreaming(rmk, stream, route.shortName(), route.description());
         } catch (Exception e) {
             throw new SITM.NoDataForPartition();
         }
 
-        Route route = routes.getOrDefault(key.lineId,
-                new Route(key.lineId, "UNKNOWN", "NA"));
-        SpeedResult result = aggregator.aggregate(rmk, data, route.shortName(), route.description());
-
-        if ("NO_DATA".equals(result.status()) && data.isEmpty()) {
-            // Mantener simetría con monolith: emit NO_DATA en vez de excepción
-        }
-
+        SpeedResult result = summary.result();
         SITM.WorkerMetrics m = new SITM.WorkerMetrics();
-        m.datagramsRead = data.size();
+        m.datagramsRead = summary.datagramsRead();
         m.validSegments = result.validSegments();
         m.outliersDropped = result.skippedSegments();
-        m.minusOneFiltered = data.stream().filter(d -> d.lineId() == -1).count();
+        m.minusOneFiltered = 0;
         m.elapsedMillis = System.currentTimeMillis() - start;
         lastMetrics.set(m);
         return SliceMapper.toSlice(result);

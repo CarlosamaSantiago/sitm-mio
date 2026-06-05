@@ -2,8 +2,7 @@
 cd "$(/usr/bin/dirname "$0")"
 mkdir -p experiment
 
-if [ ! -f experiment/RunR7.class ]; then
-  cat > experiment/RunR7.java <<'JAVA'
+cat > experiment/RunR7.java <<'JAVA'
 import com.zeroc.Ice.Communicator;
 import com.zeroc.Ice.ObjectPrx;
 import com.zeroc.Ice.Util;
@@ -17,8 +16,10 @@ public class RunR7 {
     public static void main(String[] args) throws java.lang.Exception {
         int year = 2019, month = 5;
         if (args.length >= 2) { year = Integer.parseInt(args[0]); month = Integer.parseInt(args[1]); }
+        String masterHost = System.getenv().getOrDefault("SITM_MASTER_HOST", "127.0.0.1");
+        String masterPort = System.getenv().getOrDefault("SITM_MASTER_PORT", "10050");
         try (Communicator c = Util.initialize(new String[0])) {
-            ObjectPrx base = c.stringToProxy("BatchMaster:default -h 127.0.0.1 -p 10050");
+            ObjectPrx base = c.stringToProxy("BatchMaster:default -h " + masterHost + " -p " + masterPort);
             SITM.BatchMasterPrx master = SITM.BatchMasterPrx.checkedCast(base);
             if (master == null) { System.err.println("Master proxy inválido"); System.exit(1); }
 
@@ -92,8 +93,7 @@ public class RunR7 {
     }
 }
 JAVA
-  javac -d experiment -cp "contracts/build/runtime-libs/*:contracts/build/classes/java/main" experiment/RunR7.java
-fi
+javac -d experiment -cp "contracts/build/runtime-libs/*:contracts/build/classes/java/main" experiment/RunR7.java
 
 java -cp "experiment:contracts/build/runtime-libs/*:contracts/build/classes/java/main" RunR7 "$@"
 

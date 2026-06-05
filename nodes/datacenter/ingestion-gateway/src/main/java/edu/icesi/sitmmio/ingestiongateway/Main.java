@@ -19,19 +19,27 @@ public class Main {
         String routesPath = "data/raw/lines-241-ActiveGT.csv";
         String queueProxy = "DatagramQueue:default -h 127.0.0.1 -p 10010";
         String archiveProxy = "ArchiveService:default -h 127.0.0.1 -p 10001";
+        boolean queueEnabled = true;
 
-        for (int i = 0; i < args.length - 1; i++) {
-            if ("--routes".equals(args[i])) routesPath = args[i + 1];
-            if ("--queue-proxy".equals(args[i])) queueProxy = args[i + 1];
-            if ("--archive-proxy".equals(args[i])) archiveProxy = args[i + 1];
+        for (int i = 0; i < args.length; i++) {
+            if ("--no-queue".equals(args[i])) {
+                queueEnabled = false;
+            } else if (i < args.length - 1) {
+                if ("--routes".equals(args[i])) routesPath = args[i + 1];
+                if ("--queue-proxy".equals(args[i])) queueProxy = args[i + 1];
+                if ("--archive-proxy".equals(args[i])) archiveProxy = args[i + 1];
+            }
         }
 
         try (Communicator c = Util.initialize(args)) {
             Map<Integer, Route> routes = RoutesLoader.load(Path.of(routesPath));
             System.out.println("[ingestion-gateway] loaded " + routes.size() + " active routes");
 
-            SITM.DatagramQueuePrx queue = tryConnectQueue(c, queueProxy);
+            SITM.DatagramQueuePrx queue = queueEnabled ? tryConnectQueue(c, queueProxy) : null;
             SITM.ArchiveServicePrx archive = tryConnectArchive(c, archiveProxy);
+            if (!queueEnabled) {
+                System.out.println("[ingestion-gateway] queue disabled for bulk ingestion");
+            }
 
             DatagramValidator validator = new DatagramValidator();
             RejectAuditor auditor = new RejectAuditor();

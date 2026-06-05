@@ -21,6 +21,11 @@ class PartitionAggregatorTest {
                 (int)(lat*1e7), (int)(lon*1e7), 1, 131, 1L, 1L, t, busId);
     }
 
+    private Datagram mk(int busId, long tripId, double lat, double lon, LocalDateTime t) {
+        return new Datagram(0, "28-MAY-19", 1, 100L, new GeoPoint(lat, lon),
+                (int)(lat*1e7), (int)(lon*1e7), 1, 131, tripId, 1L, t, busId);
+    }
+
     @Test
     void computesNonZeroSpeedForCaliSegment() {
         RouteMonthKey key = new RouteMonthKey(131, YearMonth.of(2019, 5));
@@ -38,5 +43,17 @@ class PartitionAggregatorTest {
         SpeedResult r = new PartitionAggregator().aggregate(
                 new RouteMonthKey(999, YearMonth.of(2019, 5)), List.of(), "X", "Y");
         assertEquals("NO_DATA", r.status());
+    }
+
+    @Test
+    void doesNotJoinDifferentTripsForSameBus() {
+        RouteMonthKey key = new RouteMonthKey(131, YearMonth.of(2019, 5));
+        Datagram a = mk(1069, 1L, 3.4516, -76.5320, LocalDateTime.of(2019, 5, 27, 10, 0, 0));
+        Datagram b = mk(1069, 2L, 3.4761, -76.4873, LocalDateTime.of(2019, 5, 27, 10, 1, 0));
+
+        SpeedResult r = new PartitionAggregator().aggregate(key, List.of(a, b), "T31", "Test");
+
+        assertEquals("NO_DATA", r.status());
+        assertEquals(0, r.validSegments());
     }
 }

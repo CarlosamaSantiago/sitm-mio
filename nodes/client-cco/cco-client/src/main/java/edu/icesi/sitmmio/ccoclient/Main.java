@@ -48,9 +48,14 @@ public class Main extends Application {
         try {
             System.out.println("[cco-client] Inicializando Ice...");
             communicator = Util.initialize(new String[]{});
+            String coordinatorHost = config("sitm.coordinator.host", "SITM_COORDINATOR_HOST", "127.0.0.1");
+            String clientHost = config("sitm.client.host", "SITM_CLIENT_HOST", "127.0.0.1");
+            String callbackPort = config("sitm.client.callback.port", "SITM_CLIENT_CALLBACK_PORT", "11020");
+            String eventBusPort = config("sitm.eventBus.port", "SITM_EVENT_BUS_PORT", "10020");
+            String reportsPort = config("sitm.reports.port", "SITM_REPORTS_PORT", "10060");
 
             // 1. Conectar al EventBus (obligatorio)
-            String busProxy = "DatagramEventBus:default -h 127.0.0.1 -p 10020";
+            String busProxy = "DatagramEventBus:default -h " + coordinatorHost + " -p " + eventBusPort;
             System.out.println("[cco-client] Resolviendo proxy: " + busProxy);
             ObjectPrx base = communicator.stringToProxy(busProxy);
             SITM.DatagramEventBusPrx bus = SITM.DatagramEventBusPrx.checkedCast(base);
@@ -60,7 +65,7 @@ public class Main extends Application {
             }
 
             // 2. Conectar al ReportProvider (opcional — sirve para popups con velocidad)
-            SITM.ReportProviderPrx reports = tryReports("ReportProvider:default -h 127.0.0.1 -p 10060");
+            SITM.ReportProviderPrx reports = tryReports("ReportProvider:default -h " + coordinatorHost + " -p " + reportsPort);
             if (reports == null) {
                 System.out.println("[cco-client] ⚠  ReportProvider no disponible — popups sin velocidad de ruta");
             } else {
@@ -69,7 +74,7 @@ public class Main extends Application {
 
             // 3. Crear servant + suscribirse
             ObjectAdapter adapter = communicator.createObjectAdapterWithEndpoints(
-                    "CcoCallbackAdapter", "default -h 127.0.0.1");
+                    "CcoCallbackAdapter", "default -h " + clientHost + " -p " + callbackPort);
             servant = new MonitoringSubscriberI(mapView, alerts, reports, YEAR_R7, MONTH_R7);
             ObjectPrx proxy = adapter.add(servant, new Identity("cco-callback", ""));
             adapter.activate();
@@ -104,6 +109,14 @@ public class Main extends Application {
             ObjectPrx p = communicator.stringToProxy(proxy);
             return SITM.ReportProviderPrx.checkedCast(p);
         } catch (Exception e) { return null; }
+    }
+
+    private static String config(String property, String env, String fallback) {
+        String value = System.getProperty(property);
+        if (value == null || value.isBlank()) {
+            value = System.getenv(env);
+        }
+        return value == null || value.isBlank() ? fallback : value;
     }
 
     private void heartbeat() {

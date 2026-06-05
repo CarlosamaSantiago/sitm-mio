@@ -27,6 +27,19 @@ replay_pid*
 data/raw/*.csv
 data/raw/*.zip
 
+# Experiment/runtime output
+data/output/*.csv
+experiment/
+analytics-db/
+lake/
+queue/
+chunks/
+bulk-lake/
+lake-local/
+logs/
+scripts/cluster-hosts.txt
+scripts/windows/
+
 # Build
 .gradle/
 build/

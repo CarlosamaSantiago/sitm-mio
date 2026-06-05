@@ -10,6 +10,7 @@ public final class WorkerRegistry {
 
     public void register(SITM.IBatchWorkerPrx w) { if (w != null) workers.add(w); }
     public int size() { return workers.size(); }
+    public List<SITM.IBatchWorkerPrx> snapshot() { return List.copyOf(workers); }
 
     public SITM.IBatchWorkerPrx pickRoundRobin() {
         if (workers.isEmpty()) return null;

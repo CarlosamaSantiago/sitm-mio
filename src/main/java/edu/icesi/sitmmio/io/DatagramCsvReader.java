@@ -30,14 +30,14 @@ public class DatagramCsvReader {
                     Integer.parseInt(columns[0].trim()),
                     columns[1].trim(),
                     Integer.parseInt(columns[2].trim()),
-                    Long.parseLong(columns[3].trim()),
+                    parseLongLenient(columns[3].trim()),
                     new GeoPoint(rawLatitude / COORDINATE_SCALE, rawLongitude / COORDINATE_SCALE),
                     rawLatitude,
                     rawLongitude,
                     Integer.parseInt(columns[6].trim()),
                     Integer.parseInt(columns[7].trim()),
-                    Long.parseLong(columns[8].trim()),
-                    Long.parseLong(columns[9].trim()),
+                    parseLongLenient(columns[8].trim()),
+                    parseLongLenient(columns[9].trim()),
                     datagramDate,
                     Integer.parseInt(columns[11].trim())
             ));
@@ -48,6 +48,14 @@ public class DatagramCsvReader {
 
     public boolean hasExpectedColumnCount(String line) {
         return splitCsvLine(line).length == EXPECTED_COLUMNS;
+    }
+
+    private static long parseLongLenient(String value) {
+        try {
+            return Long.parseLong(value);
+        } catch (NumberFormatException exception) {
+            return (long) Double.parseDouble(value);
+        }
     }
 
     private String[] splitCsvLine(String line) {

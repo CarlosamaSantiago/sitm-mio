@@ -25,6 +25,9 @@ public class Main {
             adapter.add(servant, Util.stringToIdentity("DatagramQueue"));
             adapter.activate();
             System.out.println("[datagram-queue] listening on " + port + " store=" + storeDir);
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                try { store.close(); } catch (Exception ignored) {}
+            }));
             c.waitForShutdown();
         } catch (Exception e) {
             System.err.println("[datagram-queue] FATAL: " + e);
