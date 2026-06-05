@@ -355,7 +355,19 @@ sudo ufw allow from IP_PC3 to any port 10000:10110 proto tcp
 
 Tras la ingesta completa (`bus-simulator` reporta `DONE`):
 
-### Opción 1 — cliente Ice ad-hoc
+### Opción 1 — Usar run-r7.sh (recomendado)
+
+Este script automatiza la compilación del cliente Ice y la comparación contra el oracle.
+
+```bash
+# Correr TODO el rango (2018-05 a 2019-05)
+./run-r7.sh --all-months
+
+# Correr un mes específico
+./run-r7.sh 2019 5
+```
+
+### Opción 2 — cliente Ice ad-hoc
 
 Crear `RunR7.java` en PC1:
 
@@ -405,10 +417,11 @@ curl -H "Authorization: Bearer $TOKEN" \
 
 ```bash
 # Oracle V1 (ya en repo en data/output/monolith-results.csv)
-diff <(sort data/output/monolith-results.csv) \
-     <(sort analytics-db/speed-reports.csv)
+# El diff ahora compara (lineId, yearMonth)
+./run-r7.sh --all-months
+```
 
-# Valores oracle conocidos para 2019-05:
+**Valores oracle conocidos para 2019-05:**
 # lineId=131 (T31) → averageSpeedKmH ≈ 17.375445   (validSegments=206566)
 # lineId=140 (T40) → averageSpeedKmH ≈ 15.454446   (validSegments=105358)
 # lineId=142 (T42) → averageSpeedKmH ≈ 17.273641   (validSegments=156536)

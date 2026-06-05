@@ -12,12 +12,12 @@ Cálculo de **velocidades promedio por ruta y por ruta-mes** para el SITM-MIO de
 
 El **SITM-MIO** moviliza ~450 000 pasajeros/día con ~1000 buses (proyección 2500) sobre ~100 rutas. Cada bus emite un *datagrama* GPS cada 20–30 s vía GPRS → **2.5–3 M eventos/día** que el Centro de Control de Operación (CCO) debe ingerir, procesar en tiempo real y analizar históricamente.
 
-Esta versión cubre los **dos casos de uso primarios** del Dorfmann:
+Esta versión cubre los **dos casos de uso primarios** del Dorfmann, ahora con **soporte multi-mes completo** (13 meses del dataset Pilot4):
 
 | UC | Objetivo | Requisitos satisfechos |
 |----|----------|------------------------|
 | **R4** | Monitorear flota en tiempo real | R4, R6, R9, R10, R22, R23, R24, R30, R35 |
-| **R7** | Velocidad promedio por ruta y mes | R7, R6, R10, R12, R14, R25, R27 |
+| **R7** | Velocidad promedio por ruta y mes | R7 (Multi-Month), R6, R10, R12, R14, R25, R27 |
 
 Arquitectura **distribuida con tres patrones combinados**:
 
@@ -319,9 +319,13 @@ analytics-db/speed-reports.csv                       resultados R7.4 (formato ==
 
 Una vez la ingesta haya llenado el lake (o tras ingesta completa), invocar al master. Opciones:
 
-- **A.** Cliente Ice ad-hoc en Java que llame `BatchMaster.runMonth(2019, 5)`.
-- **B.** Test de integración Gradle (TODO post-piloto).
-- **C.** Endpoint admin REST (no implementado en piloto).
+- **A.** Usar el script `run-r7.sh` (recomendado):
+  ```bash
+  ./run-r7.sh --all-months        # Rango completo 2018-05..2019-05
+  ./run-r7.sh 2019 5              # Solo mayo 2019
+  ./run-r7.sh --range 2018 5 2018 12
+  ```
+- **B.** Cliente Ice ad-hoc en Java que llame `BatchMaster.runRange(yf, mf, yt, mt)`.
 
 ### 8.2 Verificación de correctness vs V1
 

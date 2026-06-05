@@ -130,7 +130,7 @@ worker_status() {
 }
 
 run_r7() {
-  ssh "$REMOTE_USER@$COORDINATOR" "cd '$REMOTE_DIR' && $java_env && SITM_MASTER_HOST='$COORDINATOR' ./run-r7.sh 2019 5"
+  ssh "$REMOTE_USER@$COORDINATOR" "cd '$REMOTE_DIR' && $java_env && SITM_MASTER_HOST='$COORDINATOR' ./run-r7.sh ${SITM_R7_ARGS:---all-months}"
 }
 
 stop_all() {

@@ -13,29 +13,54 @@ import javafx.scene.Scene;
 import javafx.scene.web.WebView;
 import javafx.stage.Stage;
 
+/**
+ * CCO Client (JavaFX + Leaflet). Suscriptor al DatagramEventBus.
+ *
+ * Configuración (orden de precedencia):
+ *   1. Argumentos --event-bus-host, --event-bus-port, --reports-host, --reports-port,
+ *      --year-fallback, --month-fallback
+ *   2. Variables de entorno SITM_EVENT_BUS_HOST, SITM_EVENT_BUS_PORT,
+ *      SITM_REPORTS_HOST, SITM_REPORTS_PORT, SITM_R7_YEAR, SITM_R7_MONTH
+ *   3. Defaults (127.0.0.1 / puertos estándar / 2019 / 5)
+ *
+ * year/month son SOLO fallback. Lo normal es que el yearMonth se infiera del
+ * timestamp del BusUpdate en MonitoringSubscriberI.
+ */
 public class Main extends Application {
 
     private Communicator communicator;
     private MonitoringSubscriberI servant;
 
-    // Año/mes para consulta de velocidades (matchea el del MiniPilot)
-    private static final int YEAR_R7  = 2019;
-    private static final int MONTH_R7 = 5;
+    private String eventBusHost;
+    private int    eventBusPort;
+    private String reportsHost;
+    private int    reportsPort;
+    private int    yearFallback;
+    private int    monthFallback;
 
     @Override
     public void start(Stage stage) {
+        eventBusHost = pick("event-bus-host", "SITM_EVENT_BUS_HOST", "127.0.0.1");
+        eventBusPort = Integer.parseInt(pick("event-bus-port", "SITM_EVENT_BUS_PORT", "10020"));
+        reportsHost  = pick("reports-host",  "SITM_REPORTS_HOST",  "127.0.0.1");
+        reportsPort  = Integer.parseInt(pick("reports-port",  "SITM_REPORTS_PORT",  "10060"));
+        yearFallback = Integer.parseInt(pick("year-fallback", "SITM_R7_YEAR",  "2019"));
+        monthFallback= Integer.parseInt(pick("month-fallback","SITM_R7_MONTH", "5"));
+
         System.out.println("[cco-client] JavaFX iniciando...");
+        System.out.printf ("[cco-client] event-bus = %s:%d%n", eventBusHost, eventBusPort);
+        System.out.printf ("[cco-client] reports   = %s:%d%n", reportsHost, reportsPort);
+        System.out.printf ("[cco-client] fallback yearMonth = %04d-%02d%n", yearFallback, monthFallback);
+
         WebView webView = new WebView();
         webView.getEngine().setOnError(e -> System.err.println("[cco-client] WebEngine error: " + e.getMessage()));
         webView.getEngine().load(getClass().getResource("/map.html").toExternalForm());
-        webView.getEngine().getLoadWorker().stateProperty().addListener((obs, oldS, newS) -> {
-            System.out.println("[cco-client] WebEngine state: " + newS);
-        });
+        webView.getEngine().getLoadWorker().stateProperty().addListener((obs, oldS, newS) ->
+            System.out.println("[cco-client] WebEngine state: " + newS));
 
-        stage.setTitle("SITM-MIO CCO — RT + Analytics");
+        stage.setTitle("SITM-MIO CCO — " + eventBusHost);
         stage.setScene(new Scene(webView, 1200, 800));
         stage.show();
-        System.out.println("[cco-client] Ventana JavaFX visible");
 
         MapView mapView = new MapView(webView.getEngine());
         AlertPanel alerts = new AlertPanel();
@@ -44,53 +69,55 @@ public class Main extends Application {
         new Thread(this::heartbeat, "heartbeat").start();
     }
 
+    /** arg → env var → default. */
+    private String pick(String argKey, String envKey, String def) {
+        var params = getParameters().getNamed();
+        if (params.containsKey(argKey)) return params.get(argKey);
+        String env = System.getenv(envKey);
+        if (env != null && !env.isEmpty()) return env;
+        return def;
+    }
+
     private void initIce(MapView mapView, AlertPanel alerts) {
         try {
             System.out.println("[cco-client] Inicializando Ice...");
             communicator = Util.initialize(new String[]{});
-            String coordinatorHost = config("sitm.coordinator.host", "SITM_COORDINATOR_HOST", "127.0.0.1");
-            String clientHost = config("sitm.client.host", "SITM_CLIENT_HOST", "127.0.0.1");
-            String callbackPort = config("sitm.client.callback.port", "SITM_CLIENT_CALLBACK_PORT", "11020");
-            String eventBusPort = config("sitm.eventBus.port", "SITM_EVENT_BUS_PORT", "10020");
-            String reportsPort = config("sitm.reports.port", "SITM_REPORTS_PORT", "10060");
 
-            // 1. Conectar al EventBus (obligatorio)
-            String busProxy = "DatagramEventBus:default -h " + coordinatorHost + " -p " + eventBusPort;
-            System.out.println("[cco-client] Resolviendo proxy: " + busProxy);
+            String busProxy = "DatagramEventBus:default -h " + eventBusHost + " -p " + eventBusPort;
+            System.out.println("[cco-client] Resolviendo bus: " + busProxy);
             ObjectPrx base = communicator.stringToProxy(busProxy);
             SITM.DatagramEventBusPrx bus = SITM.DatagramEventBusPrx.checkedCast(base);
             if (bus == null) {
-                System.err.println("[cco-client] ❌ DatagramEventBus proxy inválido");
+                System.err.println("[cco-client] DatagramEventBus proxy invalido en " + eventBusHost);
                 return;
             }
 
-            // 2. Conectar al ReportProvider (opcional — sirve para popups con velocidad)
-            SITM.ReportProviderPrx reports = tryReports("ReportProvider:default -h " + coordinatorHost + " -p " + reportsPort);
-            if (reports == null) {
-                System.out.println("[cco-client] ⚠  ReportProvider no disponible — popups sin velocidad de ruta");
-            } else {
-                System.out.println("[cco-client] ✅ ReportProvider OK — popups mostrarán velocidad de ruta (R7) cuando esté calculada");
+            SITM.ReportProviderPrx reports = null;
+            try {
+                ObjectPrx rb = communicator.stringToProxy(
+                    "ReportProvider:default -h " + reportsHost + " -p " + reportsPort);
+                reports = SITM.ReportProviderPrx.checkedCast(rb);
+                if (reports != null) {
+                    System.out.println("[cco-client] ReportProvider conectado en " + reportsHost);
+                }
+            } catch (Exception e) {
+                System.out.println("[cco-client] ReportProvider no disponible — popups sin velocidad R7");
             }
 
-            // 3. Crear servant + suscribirse
             ObjectAdapter adapter = communicator.createObjectAdapterWithEndpoints(
-                    "CcoCallbackAdapter", "default -h " + clientHost + " -p " + callbackPort);
-            servant = new MonitoringSubscriberI(mapView, alerts, reports, YEAR_R7, MONTH_R7);
+                    "CcoCallbackAdapter", "default");
+            servant = new MonitoringSubscriberI(mapView, alerts, reports,
+                                                yearFallback, monthFallback);
             ObjectPrx proxy = adapter.add(servant, new Identity("cco-callback", ""));
             adapter.activate();
             bus.subscribe(SITM.MonitoringSubscriberPrx.uncheckedCast(proxy), 0);
-            System.out.println("[cco-client] ✅ Suscrito al DatagramEventBus (zoneId=0). Esperando updates...");
+            System.out.println("[cco-client] Suscrito al DatagramEventBus (zoneId=0)");
 
-            // 4. Refresco periódico del cache de velocidades (cada 30s)
-            //    Esto detecta cuando R7 se ejecuta tras el arranque del cco-client.
             if (reports != null) {
                 Thread refresher = new Thread(() -> {
                     while (true) {
                         try { Thread.sleep(30_000); } catch (InterruptedException e) { return; }
-                        if (servant != null && servant.cachedSpeeds() == 0) {
-                            servant.invalidateSpeedCache();
-                            System.out.println("[cco-client] refresh: aún no hay velocidades calculadas, reintentando...");
-                        }
+                        if (servant != null && servant.cachedSpeeds() == 0) servant.invalidateSpeedCache();
                     }
                 }, "speed-refresher");
                 refresher.setDaemon(true);
@@ -104,28 +131,12 @@ public class Main extends Application {
         }
     }
 
-    private SITM.ReportProviderPrx tryReports(String proxy) {
-        try {
-            ObjectPrx p = communicator.stringToProxy(proxy);
-            return SITM.ReportProviderPrx.checkedCast(p);
-        } catch (Exception e) { return null; }
-    }
-
-    private static String config(String property, String env, String fallback) {
-        String value = System.getProperty(property);
-        if (value == null || value.isBlank()) {
-            value = System.getenv(env);
-        }
-        return value == null || value.isBlank() ? fallback : value;
-    }
-
     private void heartbeat() {
         while (true) {
             try { Thread.sleep(10_000); } catch (InterruptedException e) { return; }
             if (servant != null) {
-                System.out.printf("[cco-client] heartbeat — updates=%d  alertas=%d  velocidades_cacheadas=%d/%d hits%n",
-                        servant.updateCount(), servant.alertCount(),
-                        servant.cachedSpeeds(), servant.speedHits());
+                System.out.printf("[cco-client] heartbeat updates=%d alertas=%d velocidades_cacheadas=%d%n",
+                        servant.updateCount(), servant.alertCount(), servant.cachedSpeeds());
             }
         }
     }
