@@ -1,0 +1,15 @@
+plugins {
+    id 'application'
+}
+
+dependencies {
+    implementation project(':domain-core')
+}
+
+configurations.implementation.dependencies.removeAll {
+    it.group == 'com.zeroc' && it.name == 'ice'
+}
+
+application {
+    mainClass = 'edu.icesi.sitmmio.MainV2'
+}

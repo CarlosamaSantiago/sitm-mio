@@ -1,0 +1,2 @@
+version,dataset,processedRows,validRows,skippedRows,executionTimeMs,throughputRowsPerSecond,memoryUsedMb,resultRows
+"monolith","datagrams-MiniPilot.csv",8145462,6744428,1401034,14551,559787.09,77.09,111

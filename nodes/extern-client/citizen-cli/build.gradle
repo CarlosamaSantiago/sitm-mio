@@ -1,0 +1,8 @@
+dependencies {
+    implementation project(':contracts')
+    implementation project(':domain-core')
+}
+
+jar {
+    manifest { attributes 'Main-Class': 'edu.icesi.sitmmio.citizencli.Main' }
+}

@@ -1,0 +1,49 @@
+plugins {
+    id 'java'
+}
+
+allprojects {
+    group = 'edu.icesi.sitmmio'
+    version = '3.0.0-SNAPSHOT'
+
+    repositories {
+        mavenCentral()
+    }
+}
+
+subprojects {
+    apply plugin: 'java'
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(17)
+        }
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+    }
+
+    dependencies {
+        implementation 'com.zeroc:ice:3.7.10'
+
+        testImplementation platform('org.junit:junit-bom:5.10.2')
+        testImplementation 'org.junit.jupiter:junit-jupiter'
+        testImplementation 'org.mockito:mockito-core:5.11.0'
+        testImplementation 'org.mockito:mockito-junit-jupiter:5.11.0'
+    }
+
+    test {
+        useJUnitPlatform()
+    }
+
+    // copyLibs copia el runtime classpath a build/runtime-libs/
+    // (separado de build/libs/ para evitar colisiones cuando varios subprojects
+    // se sincronizan en paralelo con dependencias entre sí)
+    tasks.register('copyLibs', Sync) {
+        from configurations.runtimeClasspath
+        into "${buildDir}/runtime-libs"
+        // Asegurar que los jars de project dependencies se construyan primero
+        dependsOn configurations.runtimeClasspath
+    }
+}

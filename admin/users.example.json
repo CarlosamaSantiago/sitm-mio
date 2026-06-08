@@ -1,0 +1,4 @@
+[
+  {"userId":"admin","passwordHash":"placeholder","role":"ADMIN","zoneId":0},
+  {"userId":"ctrl-001","passwordHash":"placeholder","role":"CONTROLLER","zoneId":1}
+]

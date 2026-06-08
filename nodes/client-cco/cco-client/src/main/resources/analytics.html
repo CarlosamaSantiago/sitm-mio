@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>SITM-MIO Analytics</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  body, html { margin:0; padding:0; height:100%; font-family: sans-serif; }
+  #wrap { display:flex; height:100vh; }
+  #map { flex:2; }
+  #panel { flex:1; padding:10px; overflow:auto; background:#fafafa; }
+  table { width:100%; border-collapse:collapse; font-size:12px; }
+  th, td { border-bottom:1px solid #ddd; padding:4px; text-align:left; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="map"></div>
+  <div id="panel">
+    <h3>Velocidades por ruta-mes</h3>
+    <table id="tbl"><thead><tr><th>Ruta</th><th>YYYY-MM</th><th>km/h</th></tr></thead><tbody></tbody></table>
+  </div>
+</div>
+<script>
+  var map = L.map('map').setView([3.42, -76.52], 12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+  var tbody = document.querySelector('#tbl tbody');
+  function speedColor(kmh) {
+    if (kmh < 10) return '#c00';
+    if (kmh < 15) return '#f80';
+    return '#0a0';
+  }
+  function loadSpeedReport(lineId, yearMonth, avgSpeed, geometry) {
+    var row = document.createElement('tr');
+    row.innerHTML = '<td>' + lineId + '</td><td>' + yearMonth + '</td>'
+                  + '<td style="color:'+ speedColor(avgSpeed) +';">' + avgSpeed.toFixed(2) + '</td>';
+    tbody.appendChild(row);
+  }
+  function clearReports() { tbody.innerHTML = ''; }
+</script>
+</body>
+</html>
