@@ -9,6 +9,7 @@ rootProject.name = 'sitm-mio'
 
 include 'contracts'
 include 'domain-core'
+include 'v2-concurrent'
 
 include ':nodes:bus:bus-simulator'
 include ':nodes:queue:datagram-queue'
